@@ -153,6 +153,39 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Exposes a Flow of active budget alerts for the selected month.
+     * An alert is triggered if spending is >= 80% of the limit.
+     */
+    fun getBudgetAlerts(targetMonth: String): Flow<List<BudgetAlert>> {
+        return combine(budgets, getMonthlyReports(targetMonth), categories) { allBudgets, report, allCats ->
+            val alerts = mutableListOf<BudgetAlert>()
+            val monthlyBudgets = allBudgets.filter { it.month == targetMonth }
+
+            for (budget in monthlyBudgets) {
+                val spent = report.categoryBreakdown[budget.categoryId] ?: 0.0
+                if (budget.amountLimit > 0) {
+                    val pct = spent / budget.amountLimit
+                    if (pct >= 0.8) {
+                        val cat = allCats.find { it.id == budget.categoryId }
+                        val catName = cat?.name ?: "Unknown Category"
+                        alerts.add(
+                            BudgetAlert(
+                                categoryId = budget.categoryId,
+                                categoryName = catName,
+                                limit = budget.amountLimit,
+                                spent = spent,
+                                percentage = pct.toFloat(),
+                                isExceeded = pct >= 1.0
+                            )
+                        )
+                    }
+                }
+            }
+            alerts.sortedByDescending { it.percentage }
+        }
+    }
+
     // --- Core Operations ---
 
     fun setDisplayCurrency(currency: String) {
@@ -401,6 +434,26 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         isAuthenticated.value = false
     }
 
+    // --- Exchange Rates Fetching ---
+    val isFetchingRates = MutableStateFlow(false)
+    val lastRatesFetchTime = MutableStateFlow("Never")
+    val ratesFetchError = MutableStateFlow<String?>(null)
+
+    fun fetchLatestExchangeRates() {
+        viewModelScope.launch {
+            isFetchingRates.value = true
+            ratesFetchError.value = null
+            val success = CurrencyRates.fetchLatestRates()
+            isFetchingRates.value = false
+            if (success) {
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                lastRatesFetchTime.value = sdf.format(Date())
+            } else {
+                ratesFetchError.value = "Failed to fetch exchange rates. Using cached/offline rates."
+            }
+        }
+    }
+
     // --- Cloud Backup & Sync Simulation ---
 
     fun triggerCloudSync() {
@@ -422,4 +475,13 @@ data class MonthlyReportData(
     val fixedExpense: Double,
     val variableExpense: Double,
     val categoryBreakdown: Map<Int, Double>
+)
+
+data class BudgetAlert(
+    val categoryId: Int,
+    val categoryName: String,
+    val limit: Double,
+    val spent: Double,
+    val percentage: Float,
+    val isExceeded: Boolean
 )

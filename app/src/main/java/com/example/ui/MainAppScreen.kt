@@ -581,6 +581,169 @@ fun MainNavigationContainer(viewModel: FinanceViewModel) {
 // 3. DASHBOARD SCREEN
 // ==========================================
 @Composable
+fun BudgetAlertsBanner(alerts: List<BudgetAlert>, displayCurrency: String) {
+    if (alerts.isEmpty()) return
+
+    val totalExceeded = alerts.count { it.isExceeded }
+    val totalApproaching = alerts.count { !it.isExceeded }
+
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { isExpanded = !isExpanded },
+        colors = CardDefaults.cardColors(
+            containerColor = if (totalExceeded > 0) {
+                if (isSystemInDarkTheme()) Color(0xFF7F1D1D).copy(alpha = 0.5f) else Color(0xFFFEE2E2).copy(alpha = 0.85f)
+            } else {
+                if (isSystemInDarkTheme()) Color(0xFF78350F).copy(alpha = 0.5f) else Color(0xFFFEF3C7).copy(alpha = 0.85f)
+            }
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (totalExceeded > 0) {
+                if (isSystemInDarkTheme()) Color(0xFFF87171).copy(alpha = 0.3f) else Color(0xFFEF4444).copy(alpha = 0.6f)
+            } else {
+                if (isSystemInDarkTheme()) Color(0xFFFBBF24).copy(alpha = 0.3f) else Color(0xFFF59E0B).copy(alpha = 0.6f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = if (totalExceeded > 0) Color(0xFFEF4444) else Color(0xFFF59E0B),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (totalExceeded > 0) Icons.Default.Warning else Icons.Default.NotificationsActive,
+                            contentDescription = "Alert",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = if (totalExceeded > 0) "Budget Alert: Limits Exceeded!" else "Approaching Budget Limits",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (totalExceeded > 0) {
+                                if (isSystemInDarkTheme()) Color(0xFFFECACA) else Color(0xFF7F1D1D)
+                            } else {
+                                if (isSystemInDarkTheme()) Color(0xFFFDE68A) else Color(0xFF78350F)
+                            }
+                        )
+                        Text(
+                            text = buildString {
+                                if (totalExceeded > 0) append("$totalExceeded exceeded")
+                                if (totalExceeded > 0 && totalApproaching > 0) append(", ")
+                                if (totalApproaching > 0) append("$totalApproaching warning")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (totalExceeded > 0) {
+                                if (isSystemInDarkTheme()) Color(0xFFFECACA).copy(alpha = 0.7f) else Color(0xFF7F1D1D).copy(alpha = 0.7f)
+                            } else {
+                                if (isSystemInDarkTheme()) Color(0xFFFDE68A).copy(alpha = 0.7f) else Color(0xFF78350F).copy(alpha = 0.7f)
+                            }
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = if (totalExceeded > 0) {
+                        if (isSystemInDarkTheme()) Color(0xFFFECACA) else Color(0xFF7F1D1D)
+                    } else {
+                        if (isSystemInDarkTheme()) Color(0xFFFDE68A) else Color(0xFF78350F)
+                    }
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HorizontalDivider(
+                        color = if (totalExceeded > 0) {
+                            if (isSystemInDarkTheme()) Color(0xFFF87171).copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.2f)
+                        } else {
+                            if (isSystemInDarkTheme()) Color(0xFFFBBF24).copy(alpha = 0.15f) else Color(0xFFF59E0B).copy(alpha = 0.2f)
+                        }
+                    )
+
+                    alerts.forEach { alert ->
+                        val limitConverted = CurrencyRates.convert(alert.limit, "USD", displayCurrency)
+                        val spentConverted = CurrencyRates.convert(alert.spent, "USD", displayCurrency)
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.04f) else Color.Black.copy(alpha = 0.02f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1.0f)) {
+                                Text(
+                                    text = alert.categoryName,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Spent: ${CurrencyRates.format(spentConverted, displayCurrency)} of ${CurrencyRates.format(limitConverted, displayCurrency)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = if (alert.isExceeded) Color(0xFFEF4444) else Color(0xFFF59E0B),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "${(alert.percentage * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun DashboardScreen(viewModel: FinanceViewModel) {
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
     val displayCurrency by viewModel.displayCurrency.collectAsStateWithLifecycle()
@@ -592,6 +755,7 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
     )
     val categoriesList by viewModel.categories.collectAsStateWithLifecycle()
     val activeTransactions by viewModel.getProcessedTransactionsForMonth(selectedMonth).collectAsStateWithLifecycle(initialValue = emptyList())
+    val budgetAlerts by viewModel.getBudgetAlerts(selectedMonth).collectAsStateWithLifecycle(initialValue = emptyList())
 
     // Convert values to display currency
     val totalBalanceUSD = accountsList.sumOf { CurrencyRates.convert(it.balance, it.currency, "USD") }
@@ -635,6 +799,9 @@ fun DashboardScreen(viewModel: FinanceViewModel) {
                 Icon(imageOf(Icons.Default.ChevronRight), "Next Month")
             }
         }
+
+        // Budget Alerts section
+        BudgetAlertsBanner(alerts = budgetAlerts, displayCurrency = displayCurrency)
 
         // Net Worth Card in Frosted Glass styling
         val totalExp = reportData.fixedExpense + reportData.variableExpense
@@ -2381,6 +2548,201 @@ fun SettingsScreen(viewModel: FinanceViewModel) {
                             label = { Text(cur) },
                             modifier = Modifier.testTag("base_currency_$cur")
                         )
+                    }
+                }
+            }
+        }
+
+        // Real-Time Rates & Historical Trend Card
+        val isFetchingRates by viewModel.isFetchingRates.collectAsStateWithLifecycle()
+        val lastRatesFetchTime by viewModel.lastRatesFetchTime.collectAsStateWithLifecycle()
+        val ratesFetchError by viewModel.ratesFetchError.collectAsStateWithLifecycle()
+        var selectedHistoryCurrency by remember { mutableStateOf("EUR") }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = glassCardColors(),
+            border = glassCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Exchange Rates & Historical Trends", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text("Maintain real-time values or inspect historical pacing.", style = MaterialTheme.typography.bodySmall)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Real-time values table
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Current Rates (Relative to 1 USD)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    listOf("USD", "EUR", "GBP", "AED", "INR").forEach { cur ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(CurrencyRates.getSymbol(cur), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(cur, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Text(
+                                text = String.format(Locale.US, "%.4f", CurrencyRates.rates[cur] ?: 1.0),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Error message if any
+                if (ratesFetchError != null) {
+                    Text(
+                        text = ratesFetchError ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+
+                // Fetch Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Last Updated", style = MaterialTheme.typography.labelSmall)
+                        Text(lastRatesFetchTime, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                    }
+                    if (isFetchingRates) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        Button(
+                            onClick = { viewModel.fetchLatestExchangeRates() },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("Fetch Latest")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Historical Exchange Rate Selection
+                Text("Historical Trends (Relative to USD)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("EUR", "GBP", "AED", "INR").forEach { cur ->
+                        FilterChip(
+                            selected = selectedHistoryCurrency == cur,
+                            onClick = { selectedHistoryCurrency = cur },
+                            label = { Text(cur) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Historical trend list & graphic visualization!
+                val history = CurrencyRates.historicalRates[selectedHistoryCurrency] ?: emptyList()
+                if (history.isNotEmpty()) {
+                    // Draw a custom trend graph!
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        // Custom Canvas to draw an ultra-polished Line/Trend Chart
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                            val count = history.size
+                            if (count > 1) {
+                                val ratesList = history.map { it.rate }
+                                val minRate = ratesList.minOrNull() ?: 0.0
+                                val maxRate = ratesList.maxOrNull() ?: 1.0
+                                val rateRange = if (maxRate == minRate) 1.0 else (maxRate - minRate)
+
+                                val stepX = size.width / (count - 1)
+                                val points = history.mapIndexed { idx, item ->
+                                    val x = idx * stepX
+                                    val y = size.height - (((item.rate - minRate) / rateRange) * (size.height * 0.7f) + (size.height * 0.15f)).toFloat()
+                                    androidx.compose.ui.geometry.Offset(x, y)
+                                }
+
+                                // Draw line connecting points
+                                for (i in 0 until points.size - 1) {
+                                    drawLine(
+                                        color = Color(0xFF9278D1),
+                                        start = points[i],
+                                        end = points[i+1],
+                                        strokeWidth = 3.dp.toPx(),
+                                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                                    )
+                                }
+
+                                // Draw points on line
+                                points.forEach { pt ->
+                                    drawCircle(
+                                        color = Color(0xFF6750A4),
+                                        center = pt,
+                                        radius = 5.dp.toPx()
+                                    )
+                                    drawCircle(
+                                        color = Color.White,
+                                        center = pt,
+                                        radius = 2.dp.toPx()
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Historical list values
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        history.forEach { hist ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = formatMonthString(hist.month),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "1 USD = %.4f %s", hist.rate, selectedHistoryCurrency),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                            }
+                        }
                     }
                 }
             }
