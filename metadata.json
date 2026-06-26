@@ -1,0 +1,6 @@
+{
+  "name": "FinFlow",
+  "description": "A complete personal finance tracker with multi-currency support, CSV parsing, recurring payments, budgets, lending, secure authentication, and cloud backup simulations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
